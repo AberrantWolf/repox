@@ -34,23 +34,21 @@ async fn main() -> Result<()> {
     let tx = console_writer.get_write_channel();
     ConsoleLogger::new(&tx).init().unwrap();
 
-    log::info!("Test");
-    log::error!("Test2");
-
-    tx.send(ConsoleMessage::InfoLog("Started!".into()))
-        .await
-        .unwrap();
-
-    // Live and do stuff, I guess
+    // Run whatever process is requested
     let args = AppArgs::parse();
-    match &args.command {
+    let mut process = match &args.command {
         AppCommand::Do(args) => {
             log::info!("Doing a 'do' command: {}", args.args.join(" "));
-            do_do(&args.args).unwrap();
+            do_do(&args.args, tx.clone()).unwrap()
         }
-    }
+    };
 
-    // TODO: Wait until runing process ends before dying
+    // Let it finish
+    // TODO: Listen for ctrl-c to kill the process, actually
+    match process.run_until_complete().await {
+        Ok(_) => log::info!("Process ended successfully"),
+        Err(_) => log::error!("Process did not end successfully"),
+    }
 
     console_writer.shutdown().await.unwrap();
 

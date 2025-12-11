@@ -3,6 +3,14 @@ use log::Log;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
+static STDOUT_PREF: &str = "[STDOUT ]";
+static STDERR_PREF: &str = "[STDERR ]";
+static INFO_PREF: &str = "[INFO   ]";
+static WARN_PREF: &str = "[WARNING]";
+static ERROR_PREF: &str = "[ERROR  ]";
+static DEBUG_PREF: &str = "[DEBUG  ]";
+static TRACE_PREF: &str = "[TRACE  ]";
+
 #[derive(Debug, Clone)]
 pub enum ConsoleMessage {
     Stdout(String),
@@ -87,13 +95,13 @@ impl Log for ConsoleLogger {
 
 fn write_message_to_console(msg: ConsoleMessage) {
     match msg {
-        ConsoleMessage::Stdout(s) => println!("STDOUT: {}", s),
-        ConsoleMessage::Stderr(s) => println!("STDERR: {}", s),
-        ConsoleMessage::InfoLog(s) => println!("INFO: {}", s),
-        ConsoleMessage::WarnLog(s) => println!("WARN: {}", s),
-        ConsoleMessage::ErrorLog(s) => println!("WARN: {}", s),
-        ConsoleMessage::DebugLog(s) => println!("WARN: {}", s),
-        ConsoleMessage::TraceLog(s) => println!("WARN: {}", s),
+        ConsoleMessage::Stdout(s) => println!("{STDOUT_PREF} {s}"),
+        ConsoleMessage::Stderr(s) => println!("{STDERR_PREF} {s}"),
+        ConsoleMessage::InfoLog(s) => println!("{INFO_PREF} {s}"),
+        ConsoleMessage::WarnLog(s) => println!("{WARN_PREF} {s}"),
+        ConsoleMessage::ErrorLog(s) => println!("{ERROR_PREF} {s}"),
+        ConsoleMessage::DebugLog(s) => println!("{DEBUG_PREF} {s}"),
+        ConsoleMessage::TraceLog(s) => println!("{TRACE_PREF} {s}"),
     }
 }
 
