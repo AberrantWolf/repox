@@ -1,15 +1,7 @@
-use crate::errors::Result;
+use crate::{AppArgs, errors::Result, strings::Prefixes};
 use log::Log;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
-
-static STDOUT_PREF: &str = "[STDOUT ]";
-static STDERR_PREF: &str = "[STDERR ]";
-static INFO_PREF: &str = "[INFO   ]";
-static WARN_PREF: &str = "[WARNING]";
-static ERROR_PREF: &str = "[ERROR  ]";
-static DEBUG_PREF: &str = "[DEBUG  ]";
-static TRACE_PREF: &str = "[TRACE  ]";
 
 #[derive(Debug, Clone)]
 pub enum ConsoleMessage {
@@ -29,10 +21,12 @@ pub struct ConsoleWriter {
 }
 
 impl ConsoleWriter {
-    pub fn new() -> Self {
+    pub fn new(args: &AppArgs) -> Self {
         let (tx, rx) = mpsc::channel::<ConsoleMessage>(100);
         let cancel = CancellationToken::new();
-        let join_handle = listen_loop(rx, cancel.clone());
+        let prefixes = Prefixes::new(&args);
+        let join_handle = listen_loop(rx, cancel.clone(), prefixes);
+
         ConsoleWriter {
             tx,
             join_handle,
@@ -93,28 +87,29 @@ impl Log for ConsoleLogger {
     fn flush(&self) {}
 }
 
-fn write_message_to_console(msg: ConsoleMessage) {
+fn write_message_to_console(msg: ConsoleMessage, prefixes: &Prefixes) {
     match msg {
-        ConsoleMessage::Stdout(s) => println!("{STDOUT_PREF} {s}"),
-        ConsoleMessage::Stderr(s) => println!("{STDERR_PREF} {s}"),
-        ConsoleMessage::InfoLog(s) => println!("{INFO_PREF} {s}"),
-        ConsoleMessage::WarnLog(s) => println!("{WARN_PREF} {s}"),
-        ConsoleMessage::ErrorLog(s) => println!("{ERROR_PREF} {s}"),
-        ConsoleMessage::DebugLog(s) => println!("{DEBUG_PREF} {s}"),
-        ConsoleMessage::TraceLog(s) => println!("{TRACE_PREF} {s}"),
+        ConsoleMessage::Stdout(s) => println!("{} {s}", prefixes.stdout),
+        ConsoleMessage::Stderr(s) => println!("{} {s}", prefixes.stderr),
+        ConsoleMessage::InfoLog(s) => println!("{} {s}", prefixes.info),
+        ConsoleMessage::WarnLog(s) => println!("{} {s}", prefixes.warn),
+        ConsoleMessage::ErrorLog(s) => println!("{} {s}", prefixes.error),
+        ConsoleMessage::DebugLog(s) => println!("{} {s}", prefixes.debug),
+        ConsoleMessage::TraceLog(s) => println!("{} {s}", prefixes.trace),
     }
 }
 
 fn listen_loop(
     mut rx: mpsc::Receiver<ConsoleMessage>,
     cancel: CancellationToken,
+    prefixes: Prefixes,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         // Loop on messages until the writer signals the cancel token
         loop {
             tokio::select! {
                 Some(msg) = rx.recv() => {
-                    write_message_to_console(msg);
+                    write_message_to_console(msg, &prefixes);
                 }
                 _ = cancel.cancelled() => {
                     println!("Ending console output");
@@ -126,7 +121,7 @@ fn listen_loop(
         // Close the MPSC channel, and then pump any remaining messages
         rx.close();
         while let Ok(msg) = rx.try_recv() {
-            write_message_to_console(msg);
+            write_message_to_console(msg, &prefixes);
         }
     })
 }
